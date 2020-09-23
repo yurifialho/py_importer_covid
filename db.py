@@ -7,17 +7,11 @@ class MysqlConnector:
 
     pool = None
 
-    def __init__(self, dbUrl, dbUser, dbPass, dbName = 'fbd'):
+    def __init__(self):
         try:
-            dbconfig = {
-                "user": dbUser,
-                "password": dbPass,
-                "host": dbUrl,
-                "database": dbName  
-            }
             self.pool = mysql.connector.pooling.MySQLConnectionPool(pool_name = "pooled_conn",
-                                                      pool_size = 10,
-                                                      **dbconfig)
+                                                      pool_size = 30,
+                                                      **Config.getDatabaseConfig())
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
                 print("Something is wrong with your user name or password")
@@ -48,6 +42,3 @@ class MysqlConnector:
         connection.commit()
         cursor.close()
         connection.close()
-
-
-

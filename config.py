@@ -10,3 +10,14 @@ class Config:
     @staticmethod
     def getEnvVariables(key):
         return os.getenv(key)
+
+    @staticmethod
+    def getDatabaseConfig(defult=True):
+        config = {
+            "user": 'root',
+            "password": '**********',
+            "host": 'localhost',
+            "database": 'fbd2'  
+        }
+        return config
+        
