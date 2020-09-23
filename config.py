@@ -7,6 +7,9 @@ class Config:
     DATABASE_PASS = 'DATABASE_PASS'
     DATABASE_NAME = 'DATABASE_NAME'
 
+    THREAD_NUMBER = 50
+    CON_NUMBER = 32
+
     @staticmethod
     def getEnvVariables(key):
         return os.getenv(key)

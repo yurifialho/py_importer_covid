@@ -36,6 +36,7 @@ class ComprasImporter():
         sqlInsert += ");"
         try:
             self.__con.performQuery(sqlInsert, line)
+            return 1
         except Exception as err:
             raise err
 
@@ -73,6 +74,7 @@ class ProviderImporter():
                     f_arr.append(fornecedor['id_porte_empresa'])
                     f_arr.append((fornecedor['_links']['porte_empresa']['title']).split(":")[1])
                     self.insertInLoadTableProvider(f_arr)
+                    return 1
         except Exception as er:
             print(er)
 

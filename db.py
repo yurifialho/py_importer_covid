@@ -10,7 +10,7 @@ class MysqlConnector:
     def __init__(self):
         try:
             self.pool = mysql.connector.pooling.MySQLConnectionPool(pool_name = "pooled_conn",
-                                                      pool_size = 30,
+                                                      pool_size = Config.CON_NUMBER,
                                                       **Config.getDatabaseConfig())
         except mysql.connector.Error as err:
             if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:

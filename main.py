@@ -33,7 +33,8 @@ class Main():
 
     def readAndLoadCsv(self):
         print("Reading....")
-        with ThreadPoolExecutor(max_workers=30) as pool:
+        self.__lock = threading.Lock()
+        with ThreadPoolExecutor(max_workers=Config.THREAD_NUMBER) as pool:
             with open("./dados1.csv", newline='', encoding='utf8') as csvfile:
                 spamreader  = csv.reader(csvfile, delimiter=';', quotechar='"')
                 for row in spamreader:
@@ -47,10 +48,16 @@ class Main():
                     Log.info(self.lnTh, self.ccTh, self.inTh)
 
     def processRowFile(self, row):
-        self.cImporter.insertInLoadTableCovid(row)
+        cI = self.cImporter.insertInLoadTableCovid(row)
+        cP = 0
         if not self.pImporter.checkHasInsertedProvider(row[10]):
-            self.pImporter.bringProviderAndInsert(row[10])
-            return 1   
+            cP = self.pImporter.bringProviderAndInsert(row[10])
+        
+        with self.__lock: 
+            self.ccTh += cI
+            self.inTh += cP
+            Log.info(self.lnTh, self.ccTh, self.inTh)
+            
 
 if __name__ == "__main__":
     main = Main()

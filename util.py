@@ -10,5 +10,5 @@ class Log():
 
             @author Yuri Fialho, Nivando Cavalcante
         '''
-        sys.stdout.write("\rInserting [%d] - Processed [%d] - - Inserted [%d]" % (readed, processed, inserted))
+        sys.stdout.write("\rReaded [%d] - Buy Covid [%d] - Provider [%d]" % (readed, processed, inserted))
         sys.stdout.flush()
