@@ -1,29 +1,34 @@
 import csv, os, requests, sys, threading
+import concurrent.futures
 
 from util import Log
 from concurrent.futures import ThreadPoolExecutor
 from config import Config
 from db import MysqlConnector
-from importer import ComprasImporter, ProviderImporter
+from importer import ComprasImporter, ProviderImporter, TipoOcorrenciaImporter, OcorrenciaProvider
 
 class Main():
 
-    cnpjErro = []
-
     mysqlConnector = None
 
-    ccTh = 0
-    inTh = 0
-    lnTh = 0
-
     def __init__(self):
+        self.lineRead = 0 
+        self.lineProcess = 0
+        self.cnpjProvides = 0
+        self.provideProcess = 0
+        self.ocorrencias = 0
         con = self.getConnector()
         self.pImporter = ProviderImporter(con)
         self.cImporter = ComprasImporter(con)
+        self.tipoOcorrImporter = TipoOcorrenciaImporter(con)
+        self.ocorrenciaImporter = OcorrenciaProvider(con)
 
     def run(self):
         print("Running")
-        self.readAndLoadCsv()
+        #self.readAndLoadCsv()
+        #self.readAndImportProviders()
+        self.readAndImportOcorrencias()
+        #self.importAuxTables()
         
     def getConnector(self):
         if self.mysqlConnector == None:
@@ -31,33 +36,62 @@ class Main():
         
         return self.mysqlConnector
 
+    def importAuxTables(self):
+        print("Importing Aux Tables...")
+
+        #Tipo Ocorrencia
+        self.tipoOcorrImporter.createLoadTableTipoOcorrencia()
+        total = self.tipoOcorrImporter.bringProviderAndInsert()
+        print("Imported [%d]" % (total))
+
     def readAndLoadCsv(self):
-        print("Reading....")
-        self.__lock = threading.Lock()
-        with ThreadPoolExecutor(max_workers=Config.THREAD_NUMBER) as pool:
-            with open("./dados1.csv", newline='', encoding='utf8') as csvfile:
-                spamreader  = csv.reader(csvfile, delimiter=';', quotechar='"')
+        with open("./dados1.csv", newline='', encoding='utf8') as csvfile:
+            spamreader  = csv.reader(csvfile, delimiter=';', quotechar='"')
+            with ThreadPoolExecutor(max_workers=Config.THREAD_NUMBER) as pool:
+                future = []
                 for row in spamreader:
+                    self.lineReadlineRead = spamreader.line_num
+                    Log.info(self.lineRead, self.lineProcess, self.cnpjProvides, self.provideProcess)
                     if spamreader.line_num == 1:
                         self.cImporter.createLoadTableCovid(row, truncate=True)
-                        self.pImporter.createLoadTableProvider(truncate=True)
                     else:
-                        pool.submit(self.processRowFile, (row))
-                        
-                    self.lnTh = spamreader.line_num
-                    Log.info(self.lnTh, self.ccTh, self.inTh)
+                        future.append(pool.submit(self.cImporter.insertInLoadTableCovid,(row)))
+                for future in concurrent.futures.as_completed(future) : 
+                    self.lineProcess += future.result()
+                    Log.info(self.lineRead, self.lineProcess, self.cnpjProvides, self.provideProcess)
+    
+    def readAndImportProviders(self):
+        cnpjs = self.cImporter.bringAllProviderInserted()
+        self.cnpjProvides = len(cnpjs)
 
-    def processRowFile(self, row):
-        cI = self.cImporter.insertInLoadTableCovid(row)
-        cP = 0
-        if not self.pImporter.checkHasInsertedProvider(row[10]):
-            cP = self.pImporter.bringProviderAndInsert(row[10])
+        Log.info(self.lineRead, self.lineProcess, self.cnpjProvides, self.provideProcess)
+        if self.cnpjProvides > 0:
+            with ThreadPoolExecutor(max_workers=30) as pool: #Config.THREAD_NUMBER
+                future = []
+                self.pImporter.createLoadTableProvider(truncate=False)
+                for cnpj in cnpjs:
+                    future.append(pool.submit(self.pImporter.bringProviderAndInsert,(cnpj[0])))
+                for future in concurrent.futures.as_completed(future) : 
+                        r = future.result()
+                        if r >= 0:
+                            self.provideProcess += r
+                        else:
+                            self.cnpjProvides += r
+                        Log.info(self.lineRead, self.lineProcess, self.cnpjProvides, self.provideProcess)
         
-        with self.__lock: 
-            self.ccTh += cI
-            self.inTh += cP
-            Log.info(self.lnTh, self.ccTh, self.inTh)
-            
+    def readAndImportOcorrencias(self):
+        cnpjs = self.pImporter.bringAllProviderInserted()
+
+        Log.info(self.lineRead, self.lineProcess, self.cnpjProvides, self.provideProcess, self.ocorrencias)
+        if len(cnpjs) > 0:
+            with ThreadPoolExecutor(max_workers=30) as pool: #Config.THREAD_NUMBER
+                future = []
+                self.ocorrenciaImporter.createLoadTableOcorrencia(truncate=True)
+                for cnpj in cnpjs:
+                    future.append(pool.submit(self.ocorrenciaImporter.bringAndInsert,(cnpj[0])))
+                for future in concurrent.futures.as_completed(future) : 
+                        self.ocorrencias += future.result()
+                        Log.info(self.lineRead, self.lineProcess, self.cnpjProvides, self.provideProcess, self.ocorrencias)
 
 if __name__ == "__main__":
     main = Main()
